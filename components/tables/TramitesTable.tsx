@@ -131,12 +131,14 @@ useEffect(() => {
       refetch();
     }
 
-    window.addEventListener("tramite_actualizado", handleUpdate);
+  window.addEventListener("tramite_actualizado", handleUpdate);
+  window.addEventListener("tramite_creado", handleUpdate);
 
-    return () => {
-      window.removeEventListener("tramite_actualizado", handleUpdate);
-    };
-  }, [refetch]);
+  return () => {
+    window.removeEventListener("tramite_actualizado", handleUpdate);
+    window.removeEventListener("tramite_creado", handleUpdate);
+  };
+}, [refetch]);
 
   const aniosDisponibles = Array.from(
     new Set(
