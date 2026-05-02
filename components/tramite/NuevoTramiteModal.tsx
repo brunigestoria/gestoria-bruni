@@ -259,27 +259,31 @@ if (pago > total) {
 
     // 💰 pago inicial
 if (datos?.pago_inicial && datos.pago_inicial > 0) {
+const total = datos?.valor || 0;
+const pago = datos?.pago_inicial || 0;
+
+// ✅ validar primero
+if (pago > total) {
+  alert("El pago inicial no puede ser mayor al total del trámite");
+  return;
+}
+
+// 💰 pago inicial
+if (pago > 0) {
   const { error: errorPago } = await supabase
     .from("pagos_cliente")
     .insert({
       tramite_id,
-      monto: datos.pago_inicial,
+      monto: Number(pago),
       fecha: new Date().toISOString(),
       es_promesa: false,
     });
 
   if (errorPago) {
+    console.error("ERROR PAGO:", errorPago);
     alert("El trámite se creó, pero falló el pago inicial");
   }
- const total = datos?.valor || 0;
-const pago = datos?.pago_inicial || 0;
-
-if (pago > total) {
-  alert("El pago inicial no puede ser mayor al total del trámite");
-  return;
-  }
-
-}
+}}
 
     for (const t of titulares) {
       let persona_id = null;
