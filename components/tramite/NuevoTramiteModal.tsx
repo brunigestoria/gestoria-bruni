@@ -225,16 +225,20 @@ export default function NuevoTramiteModal({
         estado: "en_preparacion",
       });
 
-      alert("Trámite creado");
-      onCreated();
-    } catch (err: unknown) {
-  console.error(err);
-
-  if (err instanceof Error) {
-    alert(err.message);
-  } else {
-    alert("Error inesperado");
+ if (error) {
+    alert("Error al crear trámite");
+    return; // 🚨 CLAVE → NO CIERRA
   }
+
+  alert("Trámite creado");
+
+  onCreated?.();
+  onClose();
+
+} catch (err: unknown) {
+  console.error(err);
+  alert("Error inesperado");
+  // 🚨 NO cerrar modal acá
     } finally {
       setLoading(false);
     }

@@ -68,9 +68,11 @@ export default function TramiteHistorial({ tramiteId }: { tramiteId: string }) {
     };
 
     window.addEventListener("tramite_actualizado", recargar);
+    window.addEventListener("tramite_creado", recargar);
 
     return () => {
       window.removeEventListener("tramite_actualizado", recargar);
+      window.removeEventListener("tramite_creado", recargar);
     };
   }, [cargar]);
 
