@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import TitularesSection from "./TitularesSection";
 import TiposTramiteSection from "./TiposTramiteSection";
 import DatosOperativosSection from "./DatosOperativosSection";
+import BuscadorEmbarcacion from "@/components/tramite/BuscadorEmbarcacion";
 
 export default function NuevoTramiteModal({
   onClose,
@@ -86,6 +87,7 @@ export default function NuevoTramiteModal({
       // ✅ VALIDACIÓN CORRECTA
       if (pago > total) {
         alert("El pago inicial no puede ser mayor al total del trámite");
+        setLoading(false);
         return;
       }
 
@@ -225,12 +227,9 @@ export default function NuevoTramiteModal({
         estado: "en_preparacion",
       });
 
- if (error) {
-    alert("Error al crear trámite");
-    return; // 🚨 CLAVE → NO CIERRA
-  }
-
   alert("Trámite creado");
+
+  window.dispatchEvent(new Event("tramite-creado"));
 
   onCreated?.();
   onClose();
@@ -256,19 +255,12 @@ export default function NuevoTramiteModal({
       >
         <h2 className="text-xl font-semibold">Nuevo trámite</h2>
 
-        <input
-          value={matricula}
-          placeholder="Matrícula"
-          className="w-full p-2 bg-gray-800 rounded"
-          onChange={(e) => setMatricula(e.target.value)}
-        />
-
-        <input
-          value={nombreEmbarcacion}
-          placeholder="Nombre embarcación"
-          className="w-full p-2 bg-gray-800 rounded"
-          onChange={(e) => setNombreEmbarcacion(e.target.value)}
-        />
+        <BuscadorEmbarcacion
+  onSelect={(e: any) => {
+    setNombreEmbarcacion(e.nombre);
+    setMatricula(e.matricula);
+  }}
+/>
 
         <TitularesSection onChange={setTitulares} />
 

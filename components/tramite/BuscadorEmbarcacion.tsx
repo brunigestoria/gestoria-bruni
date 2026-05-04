@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
+
 type Embarcacion = {
   id: string;
   nombre: string;
@@ -17,6 +18,7 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<Embarcacion[]>([]);
   const [crearNuevo, setCrearNuevo] = useState(false);
+  const [seleccionada, setSeleccionada] = useState<Embarcacion | null>(null);
 
   const [nombre, setNombre] = useState("");
   const [matricula, setMatricula] = useState("");
@@ -33,7 +35,7 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
       const { data } = await supabase
         .from("embarcaciones")
         .select("id,nombre,matricula")
-        .ilike("nombre", `%${busqueda}%`)
+        .or(`nombre.ilike.%${busqueda}%,matricula.ilike.%${busqueda}%`)
         .limit(5);
 
       if (data) setResultados(data);
@@ -55,10 +57,11 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
       .single();
 
     if (!error && data) {
-      onSelect(data);
-      setCrearNuevo(false);
-      setBusqueda("");
-    }
+  setSeleccionada(data);
+  setBusqueda(data.nombre + " — " + data.matricula);
+  onSelect(data);
+  setCrearNuevo(false);
+}
   }
 
   return (
@@ -68,9 +71,10 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
 
       <input
         className="w-full bg-gray-800 p-2 rounded"
-        placeholder="Buscar embarcación..."
+        placeholder="Buscar por nombre o matrícula..."
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
+        disabled={!!seleccionada}
       />
 
       {resultados.length > 0 && (
@@ -80,7 +84,11 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
             <div
               key={e.id}
               className="p-2 hover:bg-gray-700 cursor-pointer"
-              onClick={() => onSelect(e)}
+              onClick={() => {
+  setSeleccionada(e);
+  setBusqueda(e.nombre + " — " + e.matricula);
+  onSelect(e);
+}}
             >
               {e.nombre} — {e.matricula}
             </div>
@@ -89,7 +97,7 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
         </div>
       )}
 
-      {busqueda.length > 2 && resultados.length === 0 && !crearNuevo && (
+      {busqueda.length > 2 && !crearNuevo && (
         <button
           className="text-blue-400"
           onClick={() => setCrearNuevo(true)}
@@ -97,6 +105,15 @@ export default function BuscadorEmbarcacion({ onSelect }: Props) {
           + Crear nueva embarcación
         </button>
       )}
+
+      {seleccionada && (
+  <button onClick={() => {
+    setSeleccionada(null);
+    setBusqueda("");
+  }}>
+    Cambiar embarcación
+  </button>
+)}
 
       {crearNuevo && (
         <div className="space-y-2 bg-gray-800 p-3 rounded">
