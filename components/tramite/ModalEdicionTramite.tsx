@@ -15,12 +15,20 @@ type Titular = {
   principal?: boolean;
 };
 
+type Broker = {
+  id: string;
+  nombre: string;
+};
+
 type Props = {
   tramiteId: string;
   onClose: () => void;
 };
 
-export default function ModalEdicionTramite({ tramiteId, onClose }: Props) {
+export default function ModalEdicionTramite({
+  tramiteId,
+  onClose,
+}: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mensaje, setMensaje] = useState("");
@@ -33,10 +41,12 @@ export default function ModalEdicionTramite({ tramiteId, onClose }: Props) {
   const [tipoTramite, setTipoTramite] = useState("");
   const [embarcacionId, setEmbarcacionId] = useState<string | null>(null);
 
-  // 🔹 titulares (multi)
+  // 🔹 titulares
   const [titulares, setTitulares] = useState<Titular[]>([]);
+
+  // 🔹 brokers
   const [brokerId, setBrokerId] = useState<string | null>(null);
-  const [brokers, setBrokers] = useState<{ id: string; nombre: string }[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
 
   // 🔹 operativos
   const [numeroGDE, setNumeroGDE] = useState("");
@@ -44,30 +54,50 @@ export default function ModalEdicionTramite({ tramiteId, onClose }: Props) {
   const [dependencia, setDependencia] = useState("");
   const [fechaPresentacion, setFechaPresentacion] = useState("");
   const [observaciones, setObservaciones] = useState("");
+
   const [dependencias, setDependencias] = useState<Dependencia[]>([]);
 
-  // 🔥 cargar datos
+  // 🔥 cerrar con escape
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
+  // 🔥 carga inicial
   useEffect(() => {
     async function cargar() {
+      setLoading(true);
+
       const { data } = await supabase
         .from("v_tramite_detalle")
         .select("*")
         .eq("id", tramiteId)
         .single();
 
-      if (!data) return;
+      if (!data) {
+        setLoading(false);
+        return;
+      }
 
       setEmbarcacion(data.embarcacion || "");
       setMatricula(data.matricula || "");
       setTipoTramite(data.tipo_tramite || "");
       setEmbarcacionId(data.embarcacion_id || null);
+
       setBrokerId(data.broker_id || null);
 
-      console.log("DATA broker_id:", data.broker_id);
-      // 🔹 titulares
-      if (data.titulares && data.titulares.length > 0) {
+      if (data.titulares?.length > 0) {
         setTitulares(
-         data.titulares.map((t: Titular) => ({
+          data.titulares.map((t: Titular) => ({
             id: t.id,
             nombre: t.nombre,
             principal: t.principal,
@@ -89,34 +119,56 @@ export default function ModalEdicionTramite({ tramiteId, onClose }: Props) {
       setLoading(false);
     }
 
-  async function cargarBrokers() {
-  const { data } = await supabase
-    .from("personas")
-    .select("*")
-    .eq("tipo", "broker")  // 👈 CLAVE
-    .order("nombre", { ascending: true });
-  setBrokers(data || []);
-
-  console.log("BROKERS:", brokers);
-}
-cargarBrokers();
-
     async function cargarDependencias() {
-      const { data } = await supabase.from("dependencias").select("*");
+      const { data } = await supabase
+        .from("dependencias")
+        .select("*")
+        .order("nombre");
+
       setDependencias(data || []);
+    }
+
+    async function cargarBrokers() {
+      const { data } = await supabase
+        .from("personas")
+        .select("id,nombre")
+        .eq("tipo", "broker")
+        .order("nombre");
+
+      setBrokers(data || []);
     }
 
     cargar();
     cargarDependencias();
+    cargarBrokers();
   }, [tramiteId]);
+
+  // 🔥 titulares helpers
+  function actualizarTitular(index: number, valor: string) {
+    const nuevos = [...titulares];
+    nuevos[index].nombre = valor;
+    setTitulares(nuevos);
+  }
+
+  function setPrincipal(index: number) {
+    const nuevos = titulares.map((t) => ({
+      ...t,
+      principal: false,
+    }));
+
+    nuevos[index].principal = true;
+
+    setTitulares(nuevos);
+  }
+
+  function eliminarTitular(index: number) {
+    setTitulares(titulares.filter((_, i) => i !== index));
+  }
 
   // 🔥 guardar
   async function guardar() {
-if (!numeroGDE && !numeroTramite) {
-  console.warn("Trámite sin GDE ni número");
-}
-
     setSaving(true);
+    setMensaje("");
 
     // 🔹 actualizar trámite
     const { error } = await supabase
@@ -146,73 +198,107 @@ if (!numeroGDE && !numeroTramite) {
           matricula: matricula,
         })
         .eq("id", embarcacionId);
-        console.log("EMBARCACION ID:", embarcacionId);
-console.log("NOMBRE NUEVO:", embarcacion);
     }
 
     // 🔹 titulares
-const titularesActualizados = [...titulares];
+    const titularesActualizados = [...titulares];
 
-if (titularesActualizados.length > 0) {
-  if (!titularesActualizados.some((t) => t.principal)) {
-    titularesActualizados[0] = {
-      ...titularesActualizados[0],
-      principal: true,
-    };
-  }
+    if (titularesActualizados.length > 0) {
+      if (!titularesActualizados.some((t) => t.principal)) {
+        titularesActualizados[0] = {
+          ...titularesActualizados[0],
+          principal: true,
+        };
+      }
 
-  for (const t of titularesActualizados) {
-    if (!t.id) continue;
+      for (const t of titularesActualizados) {
+        if (!t.id) continue;
 
-    // update persona
-    await supabase
-      .from("personas")
-      .update({ nombre: t.nombre })
-      .eq("id", t.id);
+        await supabase
+          .from("personas")
+          .update({
+            nombre: t.nombre,
+          })
+          .eq("id", t.id);
 
-    // update relación
-    await supabase
-      .from("tramite_titulares")
-      .update({ principal: t.principal || false })
-      .eq("persona_id", t.id)
-      .eq("tramite_id", tramiteId);
-  }
-}
+        await supabase
+          .from("tramite_titulares")
+          .update({
+            principal: t.principal || false,
+          })
+          .eq("persona_id", t.id)
+          .eq("tramite_id", tramiteId);
+      }
+    }
 
     setSaving(false);
     setMensaje("Guardado correctamente");
 
+    window.dispatchEvent(new Event("tramite_actualizado"));
+
     setTimeout(() => {
-      window.dispatchEvent(new Event("tramite_actualizado"));
       onClose();
-    }, 1000);
+    }, 700);
   }
 
-  if (loading) return <div className="p-6">Cargando...</div>;
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center">
+        <div className="bg-gray-900 px-6 py-4 rounded-lg">
+          Cargando...
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70">
-      <div className="bg-gray-900 w-full max-w-5xl p-6 rounded-xl border border-gray-800">
-
+    <div
+      className="fixed inset-0 z-[9999] bg-black/70 overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="
+          bg-gray-900
+          w-full
+          max-w-5xl
+          mx-auto
+          my-10
+          p-4 md:p-6
+          rounded-xl
+          border
+          border-gray-800
+          max-h-[90vh]
+          overflow-y-auto
+        "
+      >
         {/* HEADER */}
-        <div className="flex justify-between mb-6">
-          <h2 className="text-xl">Editar trámite</h2>
-          <button onClick={onClose}>✕</button>
+        <div className="sticky top-0 bg-gray-900 z-10 pb-4 flex justify-between items-center mb-6 border-b border-gray-800">
+          <h2 className="text-xl font-semibold">Editar trámite</h2>
+
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-xl"
+          >
+            ✕
+          </button>
         </div>
 
         {mensaje && (
-          <div className="mb-4 text-sm text-green-400">{mensaje}</div>
+          <div className="mb-4 text-sm text-green-400">
+            {mensaje}
+          </div>
         )}
 
         {/* 🔒 ESTRUCTURAL */}
-        <div className="mb-6 border border-gray-800 p-4 rounded">
-          <div className="flex justify-between mb-3">
-            <h3 className="text-sm text-gray-400">Datos estructurales</h3>
-
+        <Section title="Datos estructurales">
+          <div className="flex justify-end mb-3">
             {!override && (
               <button
                 onClick={() => {
-                  if (confirm("Modificar datos sensibles")) setOverride(true);
+                  if (confirm("Modificar datos sensibles")) {
+                    setOverride(true);
+                  }
                 }}
                 className="text-xs bg-gray-700 px-2 py-1 rounded"
               >
@@ -221,7 +307,7 @@ if (titularesActualizados.length > 0) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Embarcación">
               <input
                 disabled={!override}
@@ -241,44 +327,38 @@ if (titularesActualizados.length > 0) {
             </Field>
 
             <Field label="Tipo trámite">
-              <input disabled value={tipoTramite} className="input" />
+              <input
+                disabled
+                value={tipoTramite}
+                className="input"
+              />
             </Field>
           </div>
-        </div>
+        </Section>
 
         {/* 👤 TITULARES */}
-        <div className="mb-6 border border-gray-800 p-4 rounded">
-          <h3 className="text-sm text-gray-400 mb-3">Titulares</h3>
-
+        <Section title="Titulares">
           {titulares.map((t, index) => (
-            <div key={index} className="flex gap-2 mb-2">
+            <div
+              key={index}
+              className="flex gap-2 items-center mb-2"
+            >
               <input
                 value={t.nombre}
-                onChange={(e) => {
-                  const nuevos = [...titulares];
-                  nuevos[index].nombre = e.target.value;
-                  setTitulares(nuevos);
-                }}
+                onChange={(e) =>
+                  actualizarTitular(index, e.target.value)
+                }
                 className="input flex-1"
               />
 
               <input
                 type="radio"
                 checked={t.principal}
-                onChange={() => {
-                  const nuevos = titulares.map((tit) => ({
-                    ...tit,
-                    principal: false,
-                  }));
-                  nuevos[index].principal = true;
-                  setTitulares(nuevos);
-                }}
+                onChange={() => setPrincipal(index)}
               />
 
               <button
-                onClick={() =>
-                  setTitulares(titulares.filter((_, i) => i !== index))
-                }
+                onClick={() => eliminarTitular(index)}
                 className="text-red-400"
               >
                 ✕
@@ -287,44 +367,39 @@ if (titularesActualizados.length > 0) {
           ))}
 
           <button
-            onClick={() =>
-              setTitulares([
-                ...titulares,
-                { id: "", nombre: "", principal: false },
-              ])
-            }
+            onClick={() => {
+              alert(
+                "Por ahora los titulares nuevos deben agregarse desde Nuevo Trámite"
+              );
+            }}
             className="text-blue-400 text-sm mt-2"
           >
             + Agregar titular
           </button>
-        </div>
+        </Section>
 
-  <div className="mb-6 border border-gray-800 p-4 rounded">
-  <h3 className="text-sm text-gray-400 mb-3">Broker</h3>
-        <Field label="">
-  <select
-    value={brokerId || ""}
-    onChange={(e) =>
-  setBrokerId(e.target.value || null)
-}
-    className="input"
-  >
-    <option value="">Sin asignar</option>
-    {brokers.map((b) => (
-      <option key={b.id} value={b.id}>
-        {b.nombre}
-      </option>
-    ))}
-  </select>
-</Field>
-</div>
+        {/* 🤝 BROKER */}
+        <Section title="Broker">
+          <select
+            value={brokerId || ""}
+            onChange={(e) =>
+              setBrokerId(e.target.value || null)
+            }
+            className="input"
+          >
+            <option value="">Sin asignar</option>
 
+            {brokers.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.nombre}
+              </option>
+            ))}
+          </select>
+        </Section>
 
         {/* ✏️ OPERATIVO */}
-        <div className="mb-6 border border-gray-800 p-4 rounded">
-          <h3 className="text-sm text-gray-400 mb-3">Datos operativos</h3>
-
-          <div className="grid grid-cols-2 gap-3">
+        <Section title="Datos operativos">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Número GDE">
               <input
                 value={numeroGDE}
@@ -336,7 +411,9 @@ if (titularesActualizados.length > 0) {
             <Field label="Número de trámite">
               <input
                 value={numeroTramite}
-                onChange={(e) => setNumeroTramite(e.target.value)}
+                onChange={(e) =>
+                  setNumeroTramite(e.target.value)
+                }
                 className="input"
               />
             </Field>
@@ -344,10 +421,13 @@ if (titularesActualizados.length > 0) {
             <Field label="Dependencia">
               <select
                 value={dependencia}
-                onChange={(e) => setDependencia(e.target.value)}
+                onChange={(e) =>
+                  setDependencia(e.target.value)
+                }
                 className="input"
               >
                 <option value="">Seleccionar</option>
+
                 {dependencias.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.nombre}
@@ -360,7 +440,9 @@ if (titularesActualizados.length > 0) {
               <input
                 type="date"
                 value={fechaPresentacion}
-                onChange={(e) => setFechaPresentacion(e.target.value)}
+                onChange={(e) =>
+                  setFechaPresentacion(e.target.value)
+                }
                 className="input"
               />
             </Field>
@@ -369,19 +451,28 @@ if (titularesActualizados.length > 0) {
           <Field label="Observaciones">
             <textarea
               value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
+              onChange={(e) =>
+                setObservaciones(e.target.value)
+              }
               className="input mt-2"
             />
           </Field>
-        </div>
+        </Section>
 
         {/* BOTONES */}
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-gray">
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="btn-gray"
+          >
             Cancelar
           </button>
 
-          <button onClick={guardar} disabled={saving} className="btn-blue">
+          <button
+            onClick={guardar}
+            disabled={saving}
+            className="btn-blue"
+          >
             {saving ? "Guardando..." : "Guardar"}
           </button>
         </div>
@@ -390,15 +481,17 @@ if (titularesActualizados.length > 0) {
       <style jsx>{`
         .input {
           width: 100%;
-          padding: 8px;
+          padding: 10px;
           background: #1f2937;
           border-radius: 6px;
         }
+
         .btn-blue {
           background: #2563eb;
           padding: 8px 14px;
           border-radius: 6px;
         }
+
         .btn-gray {
           background: #374151;
           padding: 8px 14px;
@@ -409,9 +502,26 @@ if (titularesActualizados.length > 0) {
   );
 }
 
+// 🔹 sections helper
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6 border border-gray-800 p-4 rounded">
+      <h3 className="text-sm text-gray-400 mb-3">
+        {title}
+      </h3>
 
+      {children}
+    </div>
+  );
+}
 
-// 🔹 helper
+// 🔹 field helper
 function Field({
   label,
   children,
@@ -421,7 +531,10 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs text-gray-400">{label}</label>
+      <label className="text-xs text-gray-400">
+        {label}
+      </label>
+
       {children}
     </div>
   );
