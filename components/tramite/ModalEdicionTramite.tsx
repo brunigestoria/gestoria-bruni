@@ -258,19 +258,7 @@ export default function ModalEdicionTramite({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="
-          bg-gray-900
-          w-full
-          max-w-5xl
-          mx-auto
-          my-10
-          p-4 md:p-6
-          rounded-xl
-          border
-          border-gray-800
-          max-h-[90vh]
-          overflow-y-auto
-        "
+        className="bg-gray-900 w-full max-w-5xl mx-auto my-10 p-4 md:p-6 rounded-xl border border-gray-800 max-h-[90vh] overflow-y-auto"
       >
         {/* HEADER */}
         <div className="sticky top-0 bg-gray-900 z-10 pb-4 flex justify-between items-center mb-6 border-b border-gray-800">
