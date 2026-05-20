@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import TramiteDatos from "@/components/modal/hook/TramiteDatos";
-import TramiteFinanzas from "@/components/modal/hook/TramiteFinanzas";
 import TramiteTitulares from "@/components/modal/hook/TramiteTitulares";
 import ModalEdicionTramite from "@/components/tramite/ModalEdicionTramite";
 import DocumentosSection from "@/components/tramite/DocumentosSection";
 import TabContable from "@/components/tramite/TabContable";
-import TitularItem from "@/components/ICC/TitularItem";
 import { toastSuccess, toastWarning, toastError } from "@/lib/toast";
 
 type Props = {
@@ -42,6 +40,8 @@ type TramiteDetalle = {
 
   total_pactado?: number;
   saldo?: number;
+  broker?: string;
+  broker_id?: string | null;
 
   firmo_autorizacion?: boolean;
   dejo_arba?: boolean;
@@ -51,36 +51,58 @@ type TramiteDetalle = {
 
 export default function Modal({ tramiteId, onClose, startInEdit }: Props) {
   const [tramite, setTramite] = useState<TramiteDetalle | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(startInEdit || false);
   const [broker, setBroker] = useState("");
-  const [brokerId, setBrokerId] = useState<string | null>(null);
   const [menuAccionesOpen, setMenuAccionesOpen] = useState(false);
   const [showRepartoForm, setShowRepartoForm] = useState(false);
- const [lugarEntrega, setLugarEntrega] = useState("");
-  const [recibe, setRecibe] = useState("");
+  const [lugarEntrega, setLugarEntrega] = useState("");
   
   
 
   // 🔹 cargar datos
   useEffect(() => {
     if (!tramiteId) return;
+    let cancelado = false;
 
     async function cargar() {
-      const { data } = await supabase
-        .from("v_tramite_detalle")
-        .select("*")
-        .eq("id", tramiteId)
-        .single();
+      setLoadError("");
+      setTramite(null);
+
+      try {
+        const { data, error } = await supabase
+          .from("v_tramite_detalle")
+          .select("*")
+          .eq("id", tramiteId)
+          .maybeSingle();
+
+        if (cancelado) return;
+
+        if (error) {
+          console.error("ERROR cargar tramite detalle:", error);
+          setLoadError("No se pudo cargar el tramite.");
+          return;
+        }
+
+        if (!data) {
+          setLoadError("No se encontro el tramite.");
+          return;
+        }
+
         setBroker(data.broker || "");
-setBrokerId(data.broker_id || null);
-
-      setTramite(data);
-      console.log("TRAMITE COMPLETO:", tramite);
-console.log("TITULARES:", data?.titulares);
-
+        setTramite(data);
+      } catch (error) {
+        if (cancelado) return;
+        console.error("ERROR fetch tramite detalle:", error);
+        setLoadError("No se pudo conectar para cargar el tramite.");
+      }
     }
 
     cargar();
+
+    return () => {
+      cancelado = true;
+    };
   }, [tramiteId]);
 
 
@@ -91,19 +113,23 @@ console.log("TITULARES:", data?.titulares);
     window.dispatchEvent(new Event("tramite_actualizado"));
   }
 
-  async function actualizarEstado(nuevoEstado: string) {
-    if (!tramite) return;
-
-    await supabase
-      .from("tramites")
-      .update({ estado: nuevoEstado })
-      .eq("id", tramite.id);
-
-    emitirRefresh();
-    onClose();
-  }
-
   if (!tramiteId) return null;
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="w-full max-w-md rounded border border-gray-800 bg-gray-900 p-6">
+          <h2 className="mb-2 text-lg font-semibold">Error</h2>
+          <p className="mb-4 text-sm text-gray-400">{loadError}</p>
+          <button
+            onClick={onClose}
+            className="rounded bg-gray-700 px-4 py-2 hover:bg-gray-600"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!tramite) return <div className="p-6">Cargando...</div>;
 
   return (
@@ -362,7 +388,7 @@ toastWarning("Ya está en reparto");
     {/* formulario reparto */}
 {showRepartoForm && (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-    <div className="bg-gray-900 p-6 rounded w-[400px] space-y-4">
+    <div className="bg-gray-900 p-6 rounded w-100 space-y-4">
 
       <h3 className="text-lg font-semibold">Enviar a reparto</h3>
 
