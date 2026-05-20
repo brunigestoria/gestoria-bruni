@@ -184,10 +184,14 @@ export default function ModalEdicionTramite({
       .eq("id", tramiteId);
 
     if (error) {
-      setMensaje("Error al guardar trámite");
-      setSaving(false);
-      return;
-    }
+  console.error("ERROR UPDATE:", error);
+
+  alert(JSON.stringify(error, null, 2));
+
+  setMensaje("Error al guardar trámite");
+  setSaving(false);
+  return;
+}
 
     // 🔹 embarcación
     if (override && embarcacionId) {
